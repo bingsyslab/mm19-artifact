@@ -1,0 +1,8 @@
+*.mp4
+*_raw.txt
+cut.py
+*.log
+*.cdf
+*.pdf
+ffmpeg
+ffprobe

@@ -1,0 +1,344 @@
+.PRECIOUS: %.mp4
+.PHONY: remap-videos view-videos ts-logs psnr-logs ssim-logs clean-remaps clean-lt-views clean-hd-views clean-views clean-ts-logs clean-psnr-logs clean-ssim-logs clean-logs clean-all clean print-videos print-orientations print-remaps print-views print-ts-logs print-psnr-logs print-ssim-logs print-logs print-all print updateself
+.SECONDEXPANSION:
+
+SHELL := /bin/bash
+SELF := ./makefile
+
+
+#
+# Directory holding orientation files (uid-%_raw.txt) and HD rectangular video segments (%_sec.mp4)
+#
+RAW_DIR ?= 1280
+HD_VIEWS_DIR ?= views
+
+#
+# Randomly choose $(UIDS_NR) orientation files to evaluate.
+# If $(UID_NR) not specified outside, use all available orientation files
+#
+ORIENTATION_FILES := $(wildcard $(RAW_DIR)/*.txt)
+UIDS := $(ORIENTATION_FILES:$(RAW_DIR)/uid-%_raw.txt=%)
+UIDS_NR ?= $(words $(UIDS))
+UIDS := $(foreach i,$(shell shuf -i 1-$(words $(UIDS)) -n $(UIDS_NR) | sort -n | tr '\n' ' '),$(word $(i), $(UIDS)))
+ORIENTATION_FILES := $(UIDS:%=$(RAW_DIR)/uid-%_raw.txt)
+
+#
+# Randomly choose $(TIMES_NR) video segments to evaluate.
+# If $(TIMES_NR) not specified outside, use all available video segments
+#
+HD_VIDEOS := $(wildcard $(RAW_DIR)/*_sec.mp4)
+TS := $(shell echo $(HD_VIDEOS:$(RAW_DIR)/%_sec.mp4=%_sec) | tr " " "\n" | sort -n | tr "\n" " ")
+TIMES_NR ?= $(words $(TS))
+TS := $(foreach i,$(shell shuf -i 1-$(words $(TS)) -n $(TIMES_NR) | sort -n | tr '\n' ' '),$(word $(i), $(TS)))
+HD_VIDEOS := $(TS:%_sec=$(RAW_DIR)/%_sec.mp4)
+
+#
+# Default $(SCHEMES): crf23
+# Default $(LAYOUTS): cube
+#
+SCHEMES ?= crf23
+LAYOUTS ?= cube
+
+
+#
+# The remap videos, located at $(scheme)/remaps/$(lt)_$(t).mp4, e.g., crf23/remaps/cube_1_sec.mp4
+#
+REMAP_VIDEOS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(foreach t,$(TS),$(scheme)/remaps/$(lt)_$(t).mp4)))
+
+#
+# The view videos, determined by uid and time:
+#   $(HD_VIEWS_DIR)/$(t).$(uid).hd.mp4, e.g., views/1_sec.aa-e6f5c7d7.hd.mp4: The view video directly generated from high definition equirectangular videos
+#   $(scheme)/views/$(t).$(uid).$(lt).mp4, e.g., crf23/1_sec.aa-e6f5c7d7.cube.mp4: The view video generated from the corresponding remapped videos
+#
+VIEWS := $(foreach uid,$(UIDS),$(foreach t,$(TS),$(t).$(uid)))
+HD_VIEW_VIDEOS := $(foreach v,$(VIEWS),$(HD_VIEWS_DIR)/$(v).hd.mp4)
+LT_VIEW_VIDEOS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(foreach v,$(VIEWS),$(scheme)/views/$(v).$(lt).mp4)))
+VIEW_VIDEOS := $(HD_VIEW_VIDEOS) $(LT_VIEW_VIDEOS)
+
+#
+# The log files. We measure the rendering time, PSNR, and SSIM
+#   Rendering time: $(scheme)/ts/$(t).$(uid).$(lt).log, e.g., crf23/ts/1_sec.aa-e6f5c7d7.cube.log
+#   PSNR:           $(scheme)/psnr/$(t).$(uid).$(lt).log, e.g., crf23/psnr/1_sec.aa-e6f5c7d7.cube.log
+#   SSIM:           $(scheme)/psnr/$(t).$(uid).$(lt).log, e.g., crf23/psnr/1_sec.aa-e6f5c7d7.cube.log
+#
+TS_LOGS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(foreach v,$(VIEWS),$(scheme)/ts/$(v).$(lt).log)))
+PSNR_LOGS := $(subst /ts/,/psnr/,$(TS_LOGS))
+SSIM_LOGS := $(subst /ts/,/ssim/,$(TS_LOGS))
+
+#
+# Directories:
+#   $(scheme)/ (crf23/)
+#     |-remaps/
+#     |-views/
+#     |-psnr/
+#     |-ssim/
+#     |-ts/
+#   views/
+#
+
+remap-videos: print-remaps $(REMAP_VIDEOS)
+clean-remaps:
+	$(RM) $(addsuffix /remaps/*,$(SCHEMES))
+
+
+view-videos: print-views $(VIEW_VIDEOS)
+clean-lt-views:
+	$(RM) $(addsuffix /views/*,$(SCHEMES))
+clean-hd-views:
+	$(RM) $(HD_VIEWS_DIR)/*
+clean-views: clean-lt-views clean-hd-views
+
+
+ts-logs: print-ts-logs $(TS_LOGS)
+clean-ts-logs:
+	$(RM) $(addsuffix /ts/*,$(SCHEMES))
+
+psnr-logs: print-psnr-logs $(PSNR_LOGS)
+clean-psnr-logs:
+	$(RM) $(addsuffix /psnr/*,$(SCHEMES))
+
+ssim-logs: print-ssim-logs $(SSIM_LOGS)
+clean-ssim-logs:
+	$(RM) $(addsuffix /ssim/*,$(SCHEMES))
+
+clean-logs: clean-ts-logs clean-psnr-logs clean-ssim-logs
+
+clean-all: clean-remaps clean-views clean-logs
+clean: clean-lt-views clean-logs
+
+
+
+
+
+#
+# Generate remap videos
+#
+define CUBE_REMAP_RULE
+$(scheme)/remaps/cube_$(time).mp4: $(RAW_DIR)/$(time).mp4 $(REMAP) $(EQRECT_LT) $(CUBE_LT) $(EQRECT_GLSL) $(SIMPLE_VERTEX_GLSL)
+	@mkdir -p $$(dir $$@)
+ifneq ($(filter crf%,$(scheme)),)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(CUBE_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR)
+else ifneq ($(filter cbr%,$(scheme)),)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(CUBE_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR)
+endif
+endef
+
+define EAC_REMAP_RULE
+$(scheme)/remaps/eac_$(time).mp4: $(RAW_DIR)/$(time).mp4 $(REMAP) $(EQRECT_LT) $(CUBE_LT) $(EQRECT_EAC_GLSL) $(SIMPLE_VERTEX_GLSL)
+	@mkdir -p $$(dir $$@)
+ifneq ($(filter crf%,$(scheme)),)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(EAC_RES) ofs=$(EQRECT_EAC_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR)
+else ifneq ($(filter cbr%,$(scheme)),)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(EAC_RES) ofs=$(EQRECT_EAC_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR)
+endif
+endef
+
+define MV_REMAP_RULE
+$(scheme)/remaps/mv_$(time).mp4: $(RAW_DIR)/$(time).mp4 $(REMAP) $(EQRECT_LT) $(MV_LT) $(EQRECT_GLSL) $(SIMPLE_VERTEX_GLSL)
+	@mkdir -p $$(dir $$@)
+ifneq ($(filter crf%,$(scheme)),)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(MV_LT) res=$(MV_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR)
+else ifneq ($(filter cbr%,$(scheme)),)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(MV_LT) res=$(MV_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR)
+endif
+endef
+
+$(foreach scheme,$(SCHEMES), \
+  $(foreach time,$(TS), \
+    $(eval $(CUBE_REMAP_RULE)) \
+    $(eval $(EAC_REMAP_RULE)) \
+    $(eval $(MV_REMAP_RULE)) \
+  ) \
+)
+
+
+
+#
+# Generate view videos
+#
+#
+VIEW_COMPRESS_FLAG ?= -crf 0
+
+VIEW_RES ?= 800x800
+FOV ?= 100x100
+
+# VIEW_RES := 1600:1600
+
+# hd view videos
+views/%.hd.mp4: $(RAW_DIR)/$$(firstword $$(subst ., ,$$*)).mp4 $(RAW_DIR)/uid-$$(word 2,$$(subst ., ,$$*))_raw.txt $(SIMPLE_VERTEX_GLSL) $(EQRECT_GLSL) $(EQRECT_LT)
+	@mkdir -p $(dir $@)
+	$(FFMPEG) -y -i $< -filter:v \
+	"project=$(subst x,:,$(VIEW_RES)):$(subst x,:,$(FOV)):0:0:0:$(SIMPLE_VERTEX_GLSL):$(EQRECT_GLSL):$(filter %.txt,$^):$(EQRECT_LT):$(word 1,$(subst _, ,$*))" \
+	  $(VIEW_COMPRESS_FLAG) $@
+
+define CUBE_VIEW_RULE
+$(scheme)/views/$(time).$(uid).cube.mp4: $(scheme)/remaps/cube_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(EQDIS_ECOEF_GLSL) $(CUBE_LT)
+	@mkdir -p $$(dir $$@)
+	$(FFMPEG) -y -i $$< -filter:v \
+	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(EQDIS_ECOEF_GLSL):$$(filter %.txt,$$^):$(CUBE_LT):$(time:%_sec=%)" \
+	$(VIEW_COMPRESS_FLAG) $$@
+endef
+
+define EAC_VIEW_RULE
+$(scheme)/views/$(time).$(uid).eac.mp4: $(scheme)/remaps/eac_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(UNEQDEG_ECOEF_GLSL) $(CUBE_LT)
+	@mkdir -p $$(dir $$@)
+	$(FFMPEG) -y -i $$< -filter:v \
+	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(UNEQDEG_ECOEF_GLSL):$$(filter %.txt,$$^):$(CUBE_LT):$(time:%_sec=%)" \
+	$(VIEW_COMPRESS_FLAG) $$@
+endef
+
+define MV_VIEW_RULE
+$(scheme)/views/$(time).$(uid).mv.mp4: $(scheme)/remaps/mv_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(EQDIS_ECOEF_GLSL) $(MV_LT)
+	@mkdir -p $$(dir $$@)
+	$(FFMPEG) -y -i $$< -filter:v \
+	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(EQDIS_ECOEF_GLSL):$$(filter %.txt,$$^):$(MV_LT):$(time:%_sec=%)" \
+	$(VIEW_COMPRESS_FLAG) $$@
+endef
+
+
+$(foreach scheme,$(SCHEMES), \
+  $(foreach time,$(TS), \
+    $(foreach uid,$(UIDS), \
+      $(eval $(CUBE_VIEW_RULE)) \
+      $(eval $(EAC_VIEW_RULE)) \
+      $(eval $(MV_VIEW_RULE)) \
+    ) \
+  ) \
+)
+
+
+
+define CUBE_TS_RULE
+$(scheme)/ts/$(time).$(uid).cube.log: $(scheme)/remaps/cube_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt  $(VERTEX_GLSL) $(EQDIS_ECOEF_GLSL) $(CUBE_LT)
+	@mkdir -p $$(dir $$@)
+	{ time $(FFMPEG) -y -i $$< -filter:v \
+	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(EQDIS_ECOEF_GLSL):$$(filter %.txt,$$^):$(CUBE_LT):$(time:%_sec=%)" \
+	$(VIEW_COMPRESS_FLAG) -f null - 2>&1 | grep "\(fps,\|elapsed\)" > $$@ ; } 2>>$$@
+endef
+
+define EAC_TS_RULE
+$(scheme)/ts/$(time).$(uid).eac.log: $(scheme)/remaps/eac_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(UNEQDEG_ECOEF_GLSL) $(CUBE_LT)
+	@mkdir -p $$(dir $$@)
+	{ time $(FFMPEG) -y -i $$< -filter:v \
+	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(UNEQDEG_ECOEF_GLSL):$$(filter %.txt,$$^):$(CUBE_LT):$(time:%_sec=%)" \
+	$(VIEW_COMPRESS_FLAG) -f null - 2>&1 | grep "\(fps,\|elapsed\)" > $$@ ; } 2>>$$@
+endef
+
+define MV_TS_RULE
+$(scheme)/ts/$(time).$(uid).mv.log: $(scheme)/remaps/mv_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(EQDIS_ECOEF_GLSL) $(MV_LT)
+	@mkdir -p $$(dir $$@)
+	{ time $(FFMPEG) -y -i $$< -filter:v \
+	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(EQDIS_ECOEF_GLSL):$$(filter %.txt,$$^):$(MV_LT):$(time:%_sec=%)" \
+	$(VIEW_COMPRESS_FLAG) -f null - 2>&1 | grep "\(fps,\|elapsed\)" > $$@ ; } 2>>$$@
+endef
+
+$(foreach scheme,$(SCHEMES), \
+  $(foreach time,$(TS), \
+    $(foreach uid,$(UIDS), \
+      $(eval $(CUBE_TS_RULE)) \
+      $(eval $(EAC_TS_RULE)) \
+      $(eval $(MV_TS_RULE)) \
+    ) \
+  ) \
+)
+
+
+# Generate PSNR & SSIM metrics
+define PSNR_RULE
+$(scheme)/psnr/$(time).$(uid).$(lt).log: $(HD_VIEWS_DIR)/$(time).$(uid).hd.mp4 $(scheme)/views/$(time).$(uid).$(lt).mp4
+	@mkdir -p $$(dir $$@)
+	$(FFMPEG) -y $$(addprefix -i ,$$^) -filter_complex "psnr=$$@" -f null - 2>&1 | grep "Parsed_psnr" >> $$@
+endef
+
+define SSIM_RULE
+$(scheme)/ssim/$(time).$(uid).$(lt).log: $(HD_VIEWS_DIR)/$(time).$(uid).hd.mp4 $(scheme)/views/$(time).$(uid).$(lt).mp4
+	@mkdir -p $$(dir $$@)
+	$(FFMPEG) -y $$(addprefix -i ,$$^) -filter_complex "ssim=$$@" -f null - 2>&1 | grep "Parsed_ssim" >> $$@
+endef
+
+$(foreach scheme,$(SCHEMES), \
+  $(foreach time,$(TS), \
+    $(foreach uid,$(UIDS), \
+      $(foreach lt,$(LAYOUTS), \
+        $(eval $(PSNR_RULE)) \
+        $(eval $(SSIM_RULE)) \
+      ) \
+    ) \
+  ) \
+)
+
+
+
+print-videos:
+	@echo ========== HD VIDEOS \($(words $(HD_VIDEOS))\) ==========
+	@echo $(HD_VIDEOS) | tr " " "\n"
+	@echo ========== TS \($(words $(TS))\) ==========
+	@echo $(TS) | tr " " "\n"
+
+print-orientations:
+	@echo ========== ORIENTATION FILES \($(words $(ORIENTATION_FILES))\) ==========
+	@echo $(ORIENTATION_FILES) | tr " " "\n"
+	@echo ========== UIDS \($(words $(UIDS))\) ==========
+	@echo $(UIDS) | tr " " "\n"
+
+print-remaps:
+	@echo ========== CUBE REMAP VIDEOS ==========
+	@echo $(shell  echo $(REMAP_VIDEOS) | tr " " "\n" | grep cube) | tr " " "\n"
+	@echo ========== EAC REMAP VIDEOS ==========
+	@echo $(shell  echo $(REMAP_VIDEOS) | tr " " "\n" | grep eac) | tr " " "\n"
+	@echo ========== REMAPPED MVL VIDEOS ==========
+	@echo $(shell  echo $(REMAP_VIDEOS) | tr " " "\n" | grep mv) | tr " " "\n"
+	@echo ========== REMAP VIDEOS ==========
+	@echo $(REMAP_VIDEOS) | tr " " "\n"
+
+print-views:
+	@echo ========== VIEWS ==========
+	@echo $(VIEWS) | tr " " "\n"
+	@echo ========== VIEW VIDEOS \(HD\) ==========
+	@echo $(HD_VIEW_VIDEOS) | tr " " "\n"
+	@echo ========== VIEW VIDEOS \(CUBE\) ==========
+	@echo $(shell  echo $(VIEW_VIDEOS) | tr " " "\n" | grep cube) | tr " " "\n"
+	@echo ========== VIEW VIDEOS \(EAC\) ==========
+	@echo $(shell  echo $(VIEW_VIDEOS) | tr " " "\n" | grep eac) | tr " " "\n"
+	@echo ========== VIEW VIDEOS \(MVL\) ==========
+	@echo $(shell  echo $(VIEW_VIDEOS) | tr " " "\n" | grep mv) | tr " " "\n"
+	@echo ========== VIEW VIDEOS ==========
+	@echo $(VIEW_VIDEOS) | tr " " "\n"
+
+print-ts-logs:
+	@echo ========== TS LOGS \(CUBE\) ==========
+	@echo $(shell  echo $(TS_LOGS) | tr " " "\n" | grep cube) | tr " " "\n"
+	@echo ========== TS LOGS \(EAC\) ==========
+	@echo $(shell  echo $(TS_LOGS) | tr " " "\n" | grep eac) | tr " " "\n"
+	@echo ========== TS LOGS \(MVL\) ==========
+	@echo $(shell  echo $(TS_LOGS) | tr " " "\n" | grep mv) | tr " " "\n"
+	@echo ========== TS LOGS ==========
+	@echo $(TS_LOGS) | tr " " "\n"
+
+print-psnr-logs:
+	@echo ========== PSNR LOGS \(CUBE\) ==========
+	@echo $(shell  echo $(PSNR_LOGS) | tr " " "\n" | grep cube) | tr " " "\n"
+	@echo ========== PSNR LOGS \(EAC\) ==========
+	@echo $(shell  echo $(PSNR_LOGS) | tr " " "\n" | grep eac) | tr " " "\n"
+	@echo ========== PSNR LOGS \(MVL\) ==========
+	@echo $(shell  echo $(PSNR_LOGS) | tr " " "\n" | grep mv) | tr " " "\n"
+	@echo ========== PSNR LOGS ==========
+	@echo $(PSNR_LOGS) | tr " " "\n"
+
+print-ssim-logs:
+	@echo ========== SSIM LOGS \(CUBE\) ==========
+	@echo $(shell  echo $(SSIM_LOGS) | tr " " "\n" | grep cube) | tr " " "\n"
+	@echo ========== SSIM LOGS \(EAC\) ==========
+	@echo $(shell  echo $(SSIM_LOGS) | tr " " "\n" | grep eac) | tr " " "\n"
+	@echo ========== SSIM LOGS \(MVL\) ==========
+	@echo $(shell  echo $(SSIM_LOGS) | tr " " "\n" | grep mv) | tr " " "\n"
+	@echo ========== SSIM LOGS ==========
+	@echo $(SSIM_LOGS) | tr " " "\n"
+
+print-logs: print-ts-logs print-psnr-logs print-ssim-logs
+print-all: print-videos print-orientations print-remaps print-views print-logs
+print: print-remaps print-views
+
+updateself:
+	cp ../makefile.sub makefile
+
