@@ -139,6 +139,7 @@ ffmpeg/:
 # The results are stored at ${VNAME}/${SCHEME}/psnr/, ${VNAME}/${SCHEME}/ssim/, ${VNAME}/${SCHEME}/ts/
 
 psnr-ssim-rand:
+	chmod +x $(REMAP)
 	for vname in $(VNAMES); do \
 	  cp makefile.sub $$vname/makefile ; \
 	  make -C $$vname remap-videos view-videos psnr-logs ssim-logs; \
@@ -148,12 +149,14 @@ psnr-ssim-rand:
 # Measure the processing time of ffmpeg360
 # "sudo time ${CMD}" is used, so this needs superuser privilege
 ts-rand:
+	chmod +x $(REMAP)
 	for vname in $(VNAMES); do \
 	  cp makefile.sub $$vname/makefile; \
 	  make -C $$vname remap-videos ts-logs; \
 	done
 
 psnr-ssim-ts-rand:
+	chmod +x $(REMAP)
 	for vname in $(VNAMES); do \
 	  cp makefile.sub $$vname/makefile; \
 	  make -C $$vname remap-videos view-videos psnr-logs ssim-logs ts-logs; \
