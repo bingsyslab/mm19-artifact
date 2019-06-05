@@ -162,6 +162,36 @@ psnr-ssim-ts-rand:
 	  make -C $$vname remap-videos view-videos psnr-logs ssim-logs ts-logs; \
 	done
 
+remap-videos:
+	for vname in $(VNAMES); do \
+	  cp makefile.sub $$vname/makefile; \
+	  make -C $$vname remap-videos; \
+	done
+
+view-videos: remap-videos
+	for vname in $(VNAMES); do \
+	  cp makefile.sub $$vname/makefile; \
+	  make -C $$vname view-videos; \
+	done
+
+psnr-logs: view-videos
+	for vname in $(VNAMES); do  \
+	  cp makefile.sub $$vname/makefile; \
+	  make -C $$vname psnr-logs; \
+	done
+
+ssim-logs: view-videos
+	for vname in $(VNAMES); do  \
+	  cp makefile.sub $$vname/makefile; \
+	  make -C $$vname ssim-logs; \
+	done
+
+ts-logs: remap-videos
+	for vname in $(VNAMES); do  \
+	  cp makefile.sub $$vname/makefile; \
+	  make -C $$vname ts-logs; \
+	done
+
 
 
 #

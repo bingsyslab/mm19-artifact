@@ -5,6 +5,7 @@
 SHELL := /bin/bash
 SELF := ./makefile
 
+VNAME := $(notdir $(shell pwd))
 
 #
 # Directory holding orientation files (uid-%_raw.txt) and HD rectangular video segments (%_sec.mp4)
@@ -115,31 +116,37 @@ clean: clean-lt-views clean-logs
 #
 define CUBE_REMAP_RULE
 $(scheme)/remaps/cube_$(time).mp4: $(RAW_DIR)/$(time).mp4 $(REMAP) $(EQRECT_LT) $(CUBE_LT) $(EQRECT_GLSL) $(SIMPLE_VERTEX_GLSL)
+	@echo
+	@echo Generating the CUBE video \"$$@\"...
 	@mkdir -p $$(dir $$@)
 ifneq ($(filter crf%,$(scheme)),)
-	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(CUBE_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(CUBE_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR) > $$(subst .mp4,.log,$$@) 2>&1
 else ifneq ($(filter cbr%,$(scheme)),)
-	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(CUBE_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(CUBE_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR) > $$(subst .mp4,.log,$$@) 2>&1
 endif
 endef
 
 define EAC_REMAP_RULE
 $(scheme)/remaps/eac_$(time).mp4: $(RAW_DIR)/$(time).mp4 $(REMAP) $(EQRECT_LT) $(CUBE_LT) $(EQRECT_EAC_GLSL) $(SIMPLE_VERTEX_GLSL)
+	@echo
+	@echo Generating the EAC video \"$$@\"...
 	@mkdir -p $$(dir $$@)
 ifneq ($(filter crf%,$(scheme)),)
-	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(EAC_RES) ofs=$(EQRECT_EAC_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(EAC_RES) ofs=$(EQRECT_EAC_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR) > $$(subst .mp4,.log,$$@) 2>&1
 else ifneq ($(filter cbr%,$(scheme)),)
-	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(EAC_RES) ofs=$(EQRECT_EAC_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(CUBE_LT) res=$(EAC_RES) ofs=$(EQRECT_EAC_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR) > $$(subst .mp4,.log,$$@) 2>&1
 endif
 endef
 
 define MV_REMAP_RULE
 $(scheme)/remaps/mv_$(time).mp4: $(RAW_DIR)/$(time).mp4 $(REMAP) $(EQRECT_LT) $(MV_LT) $(EQRECT_GLSL) $(SIMPLE_VERTEX_GLSL)
+	@echo
+	@echo Generating the MV video \"$$@\"...
 	@mkdir -p $$(dir $$@)
 ifneq ($(filter crf%,$(scheme)),)
-	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(MV_LT) res=$(MV_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(MV_LT) res=$(MV_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 crf=$(scheme:crf%=%) ffpath=$(FFMPEG_DIR) > $$(subst .mp4,.log,$$@) 2>&1
 else ifneq ($(filter cbr%,$(scheme)),)
-	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(MV_LT) res=$(MV_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR)
+	$(REMAP) iv=$$< ov=$$@ il=$(EQRECT_LT) ol=$(MV_LT) res=$(MV_RES) ofs=$(EQRECT_GLSL) ovs=$(SIMPLE_VERTEX_GLSL) ecoef=1.01 cbr=$(scheme:cbr%=%) ffpath=$(FFMPEG_DIR) > $$(subst .mp4,.log,$$@) 2>&1
 endif
 endef
 
@@ -166,33 +173,41 @@ FOV ?= 100x100
 
 # hd view videos
 views/%.hd.mp4: $(RAW_DIR)/$$(firstword $$(subst ., ,$$*)).mp4 $(RAW_DIR)/uid-$$(word 2,$$(subst ., ,$$*))_raw.txt $(SIMPLE_VERTEX_GLSL) $(EQRECT_GLSL) $(EQRECT_LT)
+	@echo
+	@echo Generating the view video \"$@\" from the HD layout...
 	@mkdir -p $(dir $@)
 	$(FFMPEG) -y -i $< -filter:v \
 	"project=$(subst x,:,$(VIEW_RES)):$(subst x,:,$(FOV)):0:0:0:$(SIMPLE_VERTEX_GLSL):$(EQRECT_GLSL):$(filter %.txt,$^):$(EQRECT_LT):$(word 1,$(subst _, ,$*))" \
-	  $(VIEW_COMPRESS_FLAG) $@
+	  $(VIEW_COMPRESS_FLAG) $@ 2> $(subst .mp4,.log,$@)
 
 define CUBE_VIEW_RULE
 $(scheme)/views/$(time).$(uid).cube.mp4: $(scheme)/remaps/cube_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(EQDIS_ECOEF_GLSL) $(CUBE_LT)
+	@echo
+	@echo Generating the view video \"$$@\" from the CUBE layout...
 	@mkdir -p $$(dir $$@)
 	$(FFMPEG) -y -i $$< -filter:v \
 	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(EQDIS_ECOEF_GLSL):$$(filter %.txt,$$^):$(CUBE_LT):$(time:%_sec=%)" \
-	$(VIEW_COMPRESS_FLAG) $$@
+	$(VIEW_COMPRESS_FLAG) $$@ 2> $$(subst .mp4,.log,$$@)
 endef
 
 define EAC_VIEW_RULE
 $(scheme)/views/$(time).$(uid).eac.mp4: $(scheme)/remaps/eac_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(UNEQDEG_ECOEF_GLSL) $(CUBE_LT)
+	@echo
+	@echo Generating the view video \"$$@\" from the EAC layout...
 	@mkdir -p $$(dir $$@)
 	$(FFMPEG) -y -i $$< -filter:v \
 	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(UNEQDEG_ECOEF_GLSL):$$(filter %.txt,$$^):$(CUBE_LT):$(time:%_sec=%)" \
-	$(VIEW_COMPRESS_FLAG) $$@
+	$(VIEW_COMPRESS_FLAG) $$@ 2> $$(subst .mp4,.log,$$@)
 endef
 
 define MV_VIEW_RULE
 $(scheme)/views/$(time).$(uid).mv.mp4: $(scheme)/remaps/mv_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(EQDIS_ECOEF_GLSL) $(MV_LT)
+	@echo
+	@echo Generating the view video \"$$@\" from the MV layout...
 	@mkdir -p $$(dir $$@)
 	$(FFMPEG) -y -i $$< -filter:v \
 	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(EQDIS_ECOEF_GLSL):$$(filter %.txt,$$^):$(MV_LT):$(time:%_sec=%)" \
-	$(VIEW_COMPRESS_FLAG) $$@
+	$(VIEW_COMPRESS_FLAG) $$@ 2> $$(subst .mp4,.log,$$@)
 endef
 
 
@@ -282,16 +297,23 @@ print-orientations:
 	@echo $(UIDS) | tr " " "\n"
 
 print-remaps:
+	@echo
+	@echo \*
+	@echo \* Generating remap videos for \"$(VNAME)\"...
+	@echo \*
 	@echo ========== CUBE REMAP VIDEOS ==========
 	@echo $(shell  echo $(REMAP_VIDEOS) | tr " " "\n" | grep cube) | tr " " "\n"
 	@echo ========== EAC REMAP VIDEOS ==========
 	@echo $(shell  echo $(REMAP_VIDEOS) | tr " " "\n" | grep eac) | tr " " "\n"
 	@echo ========== REMAPPED MVL VIDEOS ==========
 	@echo $(shell  echo $(REMAP_VIDEOS) | tr " " "\n" | grep mv) | tr " " "\n"
-	@echo ========== REMAP VIDEOS ==========
-	@echo $(REMAP_VIDEOS) | tr " " "\n"
+	@echo
 
 print-views:
+	@echo
+	@echo \*
+	@echo \* Generating view videos for \"$(VNAME)\"...
+	@echo \*
 	@echo ========== VIEWS ==========
 	@echo $(VIEWS) | tr " " "\n"
 	@echo ========== VIEW VIDEOS \(HD\) ==========
@@ -302,38 +324,46 @@ print-views:
 	@echo $(shell  echo $(VIEW_VIDEOS) | tr " " "\n" | grep eac) | tr " " "\n"
 	@echo ========== VIEW VIDEOS \(MVL\) ==========
 	@echo $(shell  echo $(VIEW_VIDEOS) | tr " " "\n" | grep mv) | tr " " "\n"
-	@echo ========== VIEW VIDEOS ==========
-	@echo $(VIEW_VIDEOS) | tr " " "\n"
+	@echo
 
 print-ts-logs:
+	@echo
+	@echo \*
+	@echo \* Generating TS logs for \"$(VNAME)\"...
+	@echo \*
 	@echo ========== TS LOGS \(CUBE\) ==========
 	@echo $(shell  echo $(TS_LOGS) | tr " " "\n" | grep cube) | tr " " "\n"
 	@echo ========== TS LOGS \(EAC\) ==========
 	@echo $(shell  echo $(TS_LOGS) | tr " " "\n" | grep eac) | tr " " "\n"
 	@echo ========== TS LOGS \(MVL\) ==========
 	@echo $(shell  echo $(TS_LOGS) | tr " " "\n" | grep mv) | tr " " "\n"
-	@echo ========== TS LOGS ==========
-	@echo $(TS_LOGS) | tr " " "\n"
+	@echo
 
 print-psnr-logs:
+	@echo
+	@echo \*
+	@echo \* Generating PSNR logs for \"$(VNAME)\"...
+	@echo \*
 	@echo ========== PSNR LOGS \(CUBE\) ==========
 	@echo $(shell  echo $(PSNR_LOGS) | tr " " "\n" | grep cube) | tr " " "\n"
 	@echo ========== PSNR LOGS \(EAC\) ==========
 	@echo $(shell  echo $(PSNR_LOGS) | tr " " "\n" | grep eac) | tr " " "\n"
 	@echo ========== PSNR LOGS \(MVL\) ==========
 	@echo $(shell  echo $(PSNR_LOGS) | tr " " "\n" | grep mv) | tr " " "\n"
-	@echo ========== PSNR LOGS ==========
-	@echo $(PSNR_LOGS) | tr " " "\n"
+	@echo
 
 print-ssim-logs:
+	@echo
+	@echo \*
+	@echo \* Generating SSIM logs for $(VNAME)...
+	@echo \*
 	@echo ========== SSIM LOGS \(CUBE\) ==========
 	@echo $(shell  echo $(SSIM_LOGS) | tr " " "\n" | grep cube) | tr " " "\n"
 	@echo ========== SSIM LOGS \(EAC\) ==========
 	@echo $(shell  echo $(SSIM_LOGS) | tr " " "\n" | grep eac) | tr " " "\n"
 	@echo ========== SSIM LOGS \(MVL\) ==========
 	@echo $(shell  echo $(SSIM_LOGS) | tr " " "\n" | grep mv) | tr " " "\n"
-	@echo ========== SSIM LOGS ==========
-	@echo $(SSIM_LOGS) | tr " " "\n"
+	@echo
 
 print-logs: print-ts-logs print-psnr-logs print-ssim-logs
 print-all: print-videos print-orientations print-remaps print-views print-logs
