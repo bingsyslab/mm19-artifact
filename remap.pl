@@ -166,33 +166,47 @@ for(my $i = 0; $i < @ol; $i++){
 
 }
 
+use Term::ANSIColor;
 if(!$two_pass){
     my $ffmpeg_cmd;
     $ffmpeg_cmd = join " ", ("${ffpath}/ffmpeg", $prefix_args, $filter_args, $project_args, $overlay_args, $q_arg, $ov);
     say $ffmpeg_cmd;
 
+    say ">>>>>>>>>>>>>>>>>>>>>>";
     open my $cmd_fh, "$ffmpeg_cmd |";
     while(<$cmd_fh>){
-    say $_;
+        print $_;
     }
     close $cmd_fh;
+
+    my $ret = $? >> 8;
+    `stty sane` if $ret > 0;
+    exit $ret;
 }else{
     my $ffmpeg_cmd1 = join " ", ("${ffpath}/ffmpeg", $prefix_args, $filter_args, $project_args, $overlay_args, $q_arg, $cbr, "-pass 1 -f mp4 /dev/null");
     say $ffmpeg_cmd1;
 
     open my $cmd_fh1, "$ffmpeg_cmd1 |";
     while(<$cmd_fh1>){
-        say $_;
+        print $_;
     }
     close $cmd_fh1;
+    my $ret = $? >> 8;
+    if($ret > 0){
+        `stty sane`;
+        exit $ret;
+    }
 
     my $ffmpeg_cmd2 = join " ", ("${ffpath}/ffmpeg", $prefix_args, $filter_args, $project_args, $overlay_args, $q_arg, $cbr, "-pass 2", $ov);
     say $ffmpeg_cmd2;
 
     open my $cmd_fh2, "$ffmpeg_cmd2 |";
     while(<$cmd_fh2>){
-        say $_;
+        print $_;
     }
     close $cmd_fh2;
+    $ret = $? >> 8;
+    `stty sane` if $ret > 0;
+    exit $ret;
 }
 

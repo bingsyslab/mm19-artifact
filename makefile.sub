@@ -178,7 +178,7 @@ views/%.hd.mp4: $(RAW_DIR)/$$(firstword $$(subst ., ,$$*)).mp4 $(RAW_DIR)/uid-$$
 	@mkdir -p $(dir $@)
 	$(FFMPEG) -y -i $< -filter:v \
 	"project=$(subst x,:,$(VIEW_RES)):$(subst x,:,$(FOV)):0:0:0:$(SIMPLE_VERTEX_GLSL):$(EQRECT_GLSL):$(filter %.txt,$^):$(EQRECT_LT):$(word 1,$(subst _, ,$*))" \
-	  $(VIEW_COMPRESS_FLAG) $@ 2> $(subst .mp4,.log,$@)
+	$(VIEW_COMPRESS_FLAG) $@ > $(subst .mp4,.log,$@) 2>&1 || stty sane
 
 define CUBE_VIEW_RULE
 $(scheme)/views/$(time).$(uid).cube.mp4: $(scheme)/remaps/cube_$(time).mp4 $(RAW_DIR)/uid-$(uid)_raw.txt $(VERTEX_GLSL) $(EQDIS_ECOEF_GLSL) $(CUBE_LT)
@@ -187,7 +187,7 @@ $(scheme)/views/$(time).$(uid).cube.mp4: $(scheme)/remaps/cube_$(time).mp4 $(RAW
 	@mkdir -p $$(dir $$@)
 	$(FFMPEG) -y -i $$< -filter:v \
 	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(EQDIS_ECOEF_GLSL):$$(filter %.txt,$$^):$(CUBE_LT):$(time:%_sec=%)" \
-	$(VIEW_COMPRESS_FLAG) $$@ 2> $$(subst .mp4,.log,$$@)
+	$(VIEW_COMPRESS_FLAG) $$@ > $$(subst .mp4,.log,$$@) 2>&1 || stty sane
 endef
 
 define EAC_VIEW_RULE
@@ -197,7 +197,7 @@ $(scheme)/views/$(time).$(uid).eac.mp4: $(scheme)/remaps/eac_$(time).mp4 $(RAW_D
 	@mkdir -p $$(dir $$@)
 	$(FFMPEG) -y -i $$< -filter:v \
 	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(UNEQDEG_ECOEF_GLSL):$$(filter %.txt,$$^):$(CUBE_LT):$(time:%_sec=%)" \
-	$(VIEW_COMPRESS_FLAG) $$@ 2> $$(subst .mp4,.log,$$@)
+	$(VIEW_COMPRESS_FLAG) $$@ > $$(subst .mp4,.log,$$@) 2>&1 || stty sane
 endef
 
 define MV_VIEW_RULE
@@ -207,7 +207,7 @@ $(scheme)/views/$(time).$(uid).mv.mp4: $(scheme)/remaps/mv_$(time).mp4 $(RAW_DIR
 	@mkdir -p $$(dir $$@)
 	$(FFMPEG) -y -i $$< -filter:v \
 	"project=$$(subst x,:,$$(VIEW_RES)):$$(subst x,:,$$(FOV)):0:0:0:$(VERTEX_GLSL):$(EQDIS_ECOEF_GLSL):$$(filter %.txt,$$^):$(MV_LT):$(time:%_sec=%)" \
-	$(VIEW_COMPRESS_FLAG) $$@ 2> $$(subst .mp4,.log,$$@)
+	$(VIEW_COMPRESS_FLAG) $$@ > $$(subst .mp4,.log,$$@) 2>&1  || stty sane
 endef
 
 
