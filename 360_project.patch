@@ -356,7 +356,7 @@ index 0000000000..a09e1ec9a1
 +#endif
 diff --git a/libavfilter/vf_project.c b/libavfilter/vf_project.c
 new file mode 100644
-index 0000000000..09d94a6b7a
+index 0000000000..5176851f1a
 --- /dev/null
 +++ b/libavfilter/vf_project.c
 @@ -0,0 +1,1429 @@
@@ -640,17 +640,17 @@ index 0000000000..09d94a6b7a
 +
 +    return ff_set_common_formats(ctx, formats);
 +}
-+
-+/* void errorCallback(int errno, const char * description) */
-+/* { */
-+/*     fprintf(stderr, "Error: %s\n", description); */
-+/* } */
++void errorCallback(int, const char *);
++void errorCallback(int _errno, const char * description)
++{
++    fprintf(stderr, "Error: %s\n", description);
++}
 +
 +static int InitWindow(AVFilterContext *ctx)
 +{
 +    ProjectContext *s = ctx->priv;
 +
-+    /* glfwSetErrorCallback(errorCallback); */
++    glfwSetErrorCallback(errorCallback);
 +    glfwInit();
 +    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 +    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
