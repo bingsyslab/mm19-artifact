@@ -200,12 +200,17 @@ ts-logs: remap-videos
 
 CDF_PL := ./cdf.pl
 
-PSNR_CDFS := $(foreach vt,$(V_TYPES),$(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).psnr_avg.$(scheme)-psnr.$(vt).cdf)))
-SSIM_CDFS := $(foreach vt,$(V_TYPES),$(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).All.$(scheme)-ssim.$(vt).cdf)))
-SIZE_CDFS := $(foreach vt,$(V_TYPES),$(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).size.$(scheme)-remaps.$(vt).cdf)))
-TS_CDFS   := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).ts.$(scheme)-ts.cdf))
+MOVING_PSNR_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).psnr_avg.$(scheme)-psnr.moving.cdf))
+STATIC_PSNR_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).psnr_avg.$(scheme)-psnr.static.cdf))
+MOVING_SSIM_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).All.$(scheme)-ssim.moving.cdf))
+STATIC_SSIM_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).All.$(scheme)-ssim.static.cdf))
+MOVING_SIZE_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).size.$(scheme)-remaps.moving.cdf))
+STATIC_SIZE_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).size.$(scheme)-remaps.static.cdf))
+TS_CDFS          := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).ts.$(scheme)-ts.cdf))
 
-CDFS := $(PSNR_CDFS) $(SSIM_CDFS) $(SIZE_CDFS) $(TS_CDFS)
+MOVING_CDFS := $(MOVING_PSNR_CDFS) $(MOVING_SSIM_CDFS) $(MOVING_SIZE_CDFS)
+STATIC_CDFS := $(STATIC_PSNR_CDFS) $(STATIC_SSIM_CDFS) $(STATIC_SIZE_CDFS)
+MOVING_STATIC_CDFS := $(MOVING_CDFS) $(STATIC_CDFS) $(TS_CDFS)
 
 %.moving.cdf: $(CDF_PL)
 	$(CDF_PL) $(foreach i,1 2,$(word $(i),$(subst ., ,$*))) \
@@ -215,10 +220,18 @@ CDFS := $(PSNR_CDFS) $(SSIM_CDFS) $(SIZE_CDFS) $(TS_CDFS)
 	$(CDF_PL) $(foreach i,1 2,$(word $(i),$(subst ., ,$*))) \
 	$(foreach vname,$(STATIC_VNAMES),$(addsuffix /$(subst -,/,$(lastword $(subst ., ,$*))),$(vname))) > $@
 
+PSNR_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).psnr_avg.$(scheme)-psnr.cdf))
+SSIM_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).All.$(scheme)-ssim.cdf))
+SIZE_CDFS := $(foreach scheme,$(SCHEMES),$(foreach lt,$(LAYOUTS),$(lt).size.$(scheme)-remaps.cdf))
+
+CDFS := $(PSNR_CDFS) $(SSIM_CDFS) $(SIZE_CDFS) $(TS_CDFS)
 %.cdf: $(CDF_PL)
 	$(CDF_PL) $(foreach i,1 2,$(word $(i),$(subst ., ,$*))) \
 	$(foreach vname,$(VNAMES),$(addsuffix /$(subst -,/,$(lastword $(subst ., ,$*))),$(vname))) > $@
 
+moving-cdfs: $(MOVING_CDFS)
+static-cdfs: $(STATIC_CDFS)
+moving-static-cdfs: $(MOVING_STATIC_CDFS)
 cdfs: $(CDFS)
 
 cdfs.tgz: $(CDFS)
@@ -229,17 +242,21 @@ clean-cdfs:
 
 
 
-
-
 #
 # Plot CDFs for segment sizes, PSNR, and SSIM
 #
 
-PSNR_CDF_PDF := $(foreach vt,$(V_TYPES),$(foreach scheme,$(SCHEMES),psnr_avg.$(scheme)-psnr.$(vt).pdf))
-SSIM_CDF_PDF := $(foreach vt,$(V_TYPES),$(foreach scheme,$(SCHEMES),All.$(scheme)-ssim.$(vt).pdf))
-SIZE_CDF_PDF := $(foreach vt,$(V_TYPES),$(foreach scheme,$(SCHEMES),size.$(scheme)-remaps.$(vt).pdf))
+MOVING_PSNR_CDF_PDF := $(foreach scheme,$(SCHEMES),psnr_avg.$(scheme)-psnr.moving.pdf)
+STATIC_PSNR_CDF_PDF := $(foreach scheme,$(SCHEMES),psnr_avg.$(scheme)-psnr.static.pdf)
+MOVING_SSIM_CDF_PDF := $(foreach scheme,$(SCHEMES),All.$(scheme)-ssim.moving.pdf)
+STATIC_SSIM_CDF_PDF := $(foreach scheme,$(SCHEMES),All.$(scheme)-ssim.static.pdf)
+MOVING_SIZE_CDF_PDF := $(foreach scheme,$(SCHEMES),size.$(scheme)-remaps.moving.pdf)
+STATIC_SIZE_CDF_PDF := $(foreach scheme,$(SCHEMES),size.$(scheme)-remaps.static.pdf)
 TS_CDF_PDF   := $(foreach scheme,$(SCHEMES),ts.$(scheme)-ts.pdf)
-CDF_PDF := $(PSNR_CDF_PDF) $(SSIM_CDF_PDF) $(SIZE_CDF_PDF) $(TS_CDF_PDF)
+
+MOVING_CDF_PDF := $(MOVING_PSNR_CDF_PDF) $(MOVING_SSIM_CDF_PDF) $(MOVING_SIZE_CDF_PDF)
+STATIC_CDF_PDF := $(STATIC_PSNR_CDF_PDF) $(STATIC_SSIM_CDF_PDF) $(STATIC_SIZE_CDF_PDF)
+MOVING_STATIC_CDF_PDF := $(MOVING_CDF_PDF) $(STATIC_CDF_PDF) $(TS_CDF_PDF)
 
 CDF_GP := cdf.gp
 TITLES := CUBE EAC MVL
@@ -268,20 +285,23 @@ All.$(scheme)-ssim.$(vt).pdf: $$(foreach lt,$(LAYOUTS),$$(lt).All.$(scheme)-ssim
 	$(CDF_GP)
 endef
 
+size_moving_xrange :=[0.6:1.19]
+size_static_xrange :=[0.6:1.19]
 define SIZE_PLOT_RULE
 size.$(scheme)-remaps.$(vt).pdf: $$(filter-out cube.%,$$(foreach lt,$(LAYOUTS),$$(lt).size.$(scheme)-remaps.$(vt).cdf)) $(CDF_GP) $(SELF)
 	gnuplot -e 'set output "$$@"' \
-	-e 'set xrange [0.6:1.19]' \
+	-e 'set xrange $$(size_$(vt)_xrange)' \
 	-e 'set xlabel "Normalized Segment Sizes"' \
 	-e 'titles = "$$(filter-out CUBE,$(TITLES))"' \
 	-e 'datafiles = "$$(filter %.cdf,$$^)"' \
 	$(CDF_GP)
 endef
 
+time_xrange := [8:30]
 define TIME_PLOT_RULE
 ts.$(scheme)-ts.pdf: $$(foreach lt,$(LAYOUTS),$$(lt).ts.$(scheme)-ts.cdf) $(CDF_GP) $(SELF)
 	gnuplot -e 'set output "$$@"' \
-	-e 'set xrange [8:30]' \
+	-e 'set xrange $$(time_xrange)' \
 	-e 'set xlabel "Time (ms)"' \
 	-e 'titles = "$(TITLES)"' \
 	-e 'datafiles = "$$(filter %.cdf,$$^)"' \
@@ -300,6 +320,54 @@ $(foreach scheme,$(SCHEMES), \
   $(eval $(TIME_PLOT_RULE)) \
 )
 
+
+PSNR_CDF_PDF := $(foreach scheme,$(SCHEMES),psnr_avg.$(scheme)-psnr.pdf)
+SSIM_CDF_PDF := $(foreach scheme,$(SCHEMES),All.$(scheme)-ssim.pdf)
+SIZE_CDF_PDF := $(foreach scheme,$(SCHEMES),size.$(scheme)-remaps.pdf)
+CDF_PDF := $(PSNR_CDF_PDF) $(SSIM_CDF_PDF) $(SIZE_CDF_PDF) $(TS_CDF_PDF)
+
+psnr_xrange := [10:50]
+define BOTH_PSNR_PLOT_RULE
+psnr_avg.$(scheme)-psnr.pdf: $$(foreach lt,$(LAYOUTS),$$(lt).psnr_avg.$(scheme)-psnr.cdf) $(CDF_GP) $(SELF)
+	gnuplot -e 'set output "$$@"' \
+	-e 'set xrange $$(psnr_xrange)' \
+	-e 'set xlabel "PSNR (dB)"' \
+	-e 'titles = "$(TITLES)"' \
+	-e 'datafiles = "$$(filter %.cdf,$$^)"' \
+	$(CDF_GP)
+endef
+
+ssim_xrange := [0.6:1]
+define BOTH_SSIM_PLOT_RULE
+All.$(scheme)-ssim.pdf: $$(foreach lt,$(LAYOUTS),$$(lt).All.$(scheme)-ssim.cdf) $(CDF_GP) $(SELF)
+	gnuplot -e 'set output "$$@"' \
+	-e 'set xrange $$(ssim_xrange)' \
+	-e 'set xlabel "SSIM"' \
+	-e 'titles = "$(TITLES)"' \
+	-e 'datafiles = "$$(filter %.cdf,$$^)"' \
+	$(CDF_GP)
+endef
+
+time_xrange := [0.6:1.19]
+define BOTH_SIZE_PLOT_RULE
+size.$(scheme)-remaps.pdf: $$(filter-out cube.%,$$(foreach lt,$(LAYOUTS),$$(lt).size.$(scheme)-remaps.cdf)) $(CDF_GP) $(SELF)
+	gnuplot -e 'set output "$$@"' \
+	-e 'set xrange $$(time_xrange)' \
+	-e 'set xlabel "Normalized Segment Sizes"' \
+	-e 'titles = "$$(filter-out CUBE,$(TITLES))"' \
+	-e 'datafiles = "$$(filter %.cdf,$$^)"' \
+	$(CDF_GP)
+endef
+
+$(foreach scheme,$(SCHEMES), \
+  $(eval $(BOTH_PSNR_PLOT_RULE)) \
+  $(eval $(BOTH_SSIM_PLOT_RULE)) \
+  $(eval $(BOTH_SIZE_PLOT_RULE)) \
+)
+
+moving-pdfs: $(MOVING_CDF_PDF)
+static-pdfs: $(MOVING_CDF_PDF)
+moving-static-pdfs: $(MOVING_STATIC_CDF_PDF)
 pdfs: $(CDF_PDF)
 
 clean-pdfs:

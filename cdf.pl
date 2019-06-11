@@ -11,6 +11,10 @@ my @dirs = (@ARGV); # directories
 my @logs;
 
 for my $dir (@dirs){
+    if( ! -d $dir ){
+        say STDERR "Not such directory $dir";
+        exit(-1);
+    }
     @logs = (@logs, map { chomp $_; "$dir/$_"; } grep(/$proj/, `ls $dir`));
 }
 
