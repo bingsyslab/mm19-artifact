@@ -87,7 +87,7 @@ help:
 VNAMES ?= Diving Paris Rollercoaster Timelapse Venise Conan_Gore_Fly Cooking_Battle Front Help Rhinos Conan_Weird_Al Football Tahiti_Surf Anitta FemaleBasketball Fighting Korean Reloaded RioVR TFBoy VoiceToy
 
 MOVING_VNAMES ?= Diving Rollercoaster Tahiti_Surf Front
-STATIC_VNAMES := $(filter-out $(MOVING_VNAMES),$(VNAMES))
+STATIC_VNAMES ?= $(filter-out $(MOVING_VNAMES),$(VNAMES))
 V_TYPES := moving static
 
 # layouts to evaluate
